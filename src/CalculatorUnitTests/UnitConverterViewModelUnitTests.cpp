@@ -27,13 +27,6 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 namespace CalculatorUnitTests
 {
-    String^ AddUnicodeLTRMarkers(wstring str)
-    {
-        str.insert(str.begin(), L'\u202a');
-        str.push_back(L'\u202c');
-        return ref new String(str.c_str());
-    }
-
     TEST_CLASS(CategoryViewModelTests)
     {
     public:
@@ -227,7 +220,7 @@ void UnitConverterMock::SwitchActive(const std::wstring& newValue)
         return L"TEST";
     };
 
-void UnitConverterMock::RestoreUserPreferences(_In_ const std::wstring& /*userPreferences*/){};
+void UnitConverterMock::RestoreUserPreferences(_In_ std::wstring_view /*userPreferences*/){};
 
 void UnitConverterMock::SendCommand(UCM::Command command)
 {
@@ -298,7 +291,7 @@ for (unsigned int k = 0; k < categoryList->Size; k++)
                 wstring expResult = expectedResult->Data();
 
                 double expectedConversion = GetDoubleFromWstring(expResult);
-                double actualConversion = GetDoubleFromWstring(GetStringValue(vm->Value1)->Data());
+                double actualConversion = GetDoubleFromWstring(vm->Value1->Data());
                 double diff = abs(expectedConversion - actualConversion);
 
                 // Assert for diff less than epsilonth fraction of expected conversion result
@@ -422,10 +415,9 @@ TEST_METHOD(TestDisplayCallbackUpdatesDisplayValues)
 {
     shared_ptr<UnitConverterMock> mock = make_shared<UnitConverterMock>();
     VM::UnitConverterViewModel vm(mock);
-    const WCHAR *vFrom = L"1234", *vTo = L"56.78";
-    vm.UpdateDisplay(vFrom, vTo);
-    VERIFY_IS_TRUE(vm.Value1 == AddUnicodeLTRMarkers(L"1,234"));
-    VERIFY_IS_TRUE(vm.Value2 == AddUnicodeLTRMarkers(vTo));
+    vm.UpdateDisplay(L"1234", L"56.78");
+    VERIFY_IS_TRUE(vm.Value1 == L"1,234");
+    VERIFY_IS_TRUE(vm.Value2 == L"56.78");
 }
 
 // Test that the calculator button command correctly fires
@@ -570,10 +562,9 @@ TEST_METHOD(TestDisplayValueUpdatesAfterSwitchingActiveUpdateTheRightDisplay)
     const WCHAR *vFrom = L"1", *vTo = L"234";
     vm.UpdateDisplay(vFrom, vTo);
     vm.Value2Active = true;
-    const WCHAR *newvFrom = L"3", *newvTo = L"57";
-    vm.UpdateDisplay(newvFrom, newvTo);
-    VERIFY_IS_TRUE(vm.Value2 == AddUnicodeLTRMarkers(newvFrom));
-    VERIFY_IS_TRUE(vm.Value1 == AddUnicodeLTRMarkers(newvTo));
+    vm.UpdateDisplay(L"3", L"57");
+    VERIFY_IS_TRUE(vm.Value2 == L"3");
+    VERIFY_IS_TRUE(vm.Value1 == L"57");
 }
 
 // Tests that when we switch the active field and get change units,
@@ -637,10 +628,9 @@ TEST_METHOD(TestCategoryChangeAfterSwitchingActiveUpdatesDisplayCorrectly)
     VERIFY_IS_TRUE(UNIT9 == mock->m_curFrom);
     VERIFY_IS_TRUE(UNIT7 == mock->m_curTo);
     VERIFY_ARE_EQUAL((UINT)1, mock->m_switchActiveCallCount);
-    const wchar_t *newvFrom = L"5", *newvTo = L"7";
-    vm.UpdateDisplay(newvFrom, newvTo);
-    VERIFY_IS_TRUE(vm.Value2 == AddUnicodeLTRMarkers(newvFrom));
-    VERIFY_IS_TRUE(vm.Value1 == AddUnicodeLTRMarkers(newvTo));
+    vm.UpdateDisplay(L"5", L"7");
+    VERIFY_IS_TRUE(vm.Value2 == L"5");
+    VERIFY_IS_TRUE(vm.Value1 == L"7");
 }
 
 // Repeat above active switch tests but with a second switch to ensure
@@ -682,10 +672,9 @@ TEST_METHOD(TestDisplayValueUpdatesAfterSwitchingActiveTwiceUpdateTheRightDispla
     vm.UpdateDisplay(vFrom, vTo);
     vm.Value2Active = true;
     vm.Value1Active = true;
-    const WCHAR *newvFrom = L"3", *newvTo = L"57";
-    vm.UpdateDisplay(newvFrom, newvTo);
-    VERIFY_IS_TRUE(vm.Value1 == AddUnicodeLTRMarkers(newvFrom));
-    VERIFY_IS_TRUE(vm.Value2 == AddUnicodeLTRMarkers(newvTo));
+    vm.UpdateDisplay(L"3", L"57");
+    VERIFY_IS_TRUE(vm.Value1 == L"3");
+    VERIFY_IS_TRUE(vm.Value2 == L"57");
 }
 
 TEST_METHOD(TestUnitChangeAfterSwitchingActiveTwiceUpdateUnitsCorrectly)
@@ -716,10 +705,9 @@ TEST_METHOD(TestCategoryChangeAfterSwitchingActiveTwiceUpdatesDisplayCorrectly)
     VERIFY_IS_TRUE(UNIT9 == mock->m_curFrom);
     VERIFY_IS_TRUE(UNIT7 == mock->m_curTo);
     VERIFY_ARE_EQUAL((UINT)2, mock->m_switchActiveCallCount);
-    const wchar_t *newvFrom = L"5", *newvTo = L"7";
-    vm.UpdateDisplay(newvFrom, newvTo);
-    VERIFY_IS_TRUE(vm.Value1 == AddUnicodeLTRMarkers(newvFrom));
-    VERIFY_IS_TRUE(vm.Value2 == AddUnicodeLTRMarkers(newvTo));
+    vm.UpdateDisplay(L"5", L"7");
+    VERIFY_IS_TRUE(vm.Value1 == L"5");
+    VERIFY_IS_TRUE(vm.Value2 == L"7");
 }
 
 // There is a 100 ms fudge time for the time based tests below
@@ -739,11 +727,11 @@ TEST_METHOD(TestSuggestedValuesCallbackUpdatesSupplementaryResults)
     WaitForSingleObjectEx(GetCurrentThread(), 200, FALSE);
     // Now we should see it
     VERIFY_ARE_EQUAL((UINT)3, vm.SupplementaryResults->Size);
-    VERIFY_IS_TRUE((AddUnicodeLTRMarkers(L"1")) == vm.SupplementaryResults->GetAt(0)->Value);
+    VERIFY_IS_TRUE(L"1" == vm.SupplementaryResults->GetAt(0)->Value);
     VERIFY_IS_TRUE(UNIT1 == vm.SupplementaryResults->GetAt(0)->Unit->GetModelUnit());
-    VERIFY_IS_TRUE((AddUnicodeLTRMarkers(L"2")) == vm.SupplementaryResults->GetAt(1)->Value);
+    VERIFY_IS_TRUE(L"2" == vm.SupplementaryResults->GetAt(1)->Value);
     VERIFY_IS_TRUE(UNIT2 == vm.SupplementaryResults->GetAt(1)->Unit->GetModelUnit());
-    VERIFY_IS_TRUE((AddUnicodeLTRMarkers(L"3")) == vm.SupplementaryResults->GetAt(2)->Value);
+    VERIFY_IS_TRUE(L"3" == vm.SupplementaryResults->GetAt(2)->Value);
     VERIFY_IS_TRUE(UNIT3 == vm.SupplementaryResults->GetAt(2)->Unit->GetModelUnit());
 }
 
@@ -852,69 +840,68 @@ TEST_METHOD(TestOnPaste)
 
     // Call count is being set to 1 because we send 'CE' command as the first call in OnPaste method of the ViewModel
     UINT callCount = 1;
-    ViewMode mode = ViewMode::Volume; // Some temp mode for UnitConverter
 
     // Paste an invalid character - verify that call count doesn't increment
-    vm.OnPaste("z", mode);
+    vm.OnPaste("z");
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
 
     // Test all valid characters. Verify that two commands are sent for each character
-    vm.OnPaste("0", mode);
+    vm.OnPaste("0");
     callCount += 2;
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     VERIFY_IS_TRUE(UCM::Command::Zero == mock->m_lastCommand);
 
-    vm.OnPaste("1", mode);
+    vm.OnPaste("1");
     callCount += 2;
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     VERIFY_IS_TRUE(UCM::Command::One == mock->m_lastCommand);
 
-    vm.OnPaste("2", mode);
+    vm.OnPaste("2");
     callCount += 2;
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     VERIFY_IS_TRUE(UCM::Command::Two == mock->m_lastCommand);
 
-    vm.OnPaste("3", mode);
+    vm.OnPaste("3");
     callCount += 2;
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     VERIFY_IS_TRUE(UCM::Command::Three == mock->m_lastCommand);
 
-    vm.OnPaste("4", mode);
+    vm.OnPaste("4");
     callCount += 2;
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     VERIFY_IS_TRUE(UCM::Command::Four == mock->m_lastCommand);
 
-    vm.OnPaste("5", mode);
+    vm.OnPaste("5");
     callCount += 2;
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     VERIFY_IS_TRUE(UCM::Command::Five == mock->m_lastCommand);
 
-    vm.OnPaste("6", mode);
+    vm.OnPaste("6");
     callCount += 2;
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     VERIFY_IS_TRUE(UCM::Command::Six == mock->m_lastCommand);
 
-    vm.OnPaste("7", mode);
+    vm.OnPaste("7");
     callCount += 2;
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     VERIFY_IS_TRUE(UCM::Command::Seven == mock->m_lastCommand);
 
-    vm.OnPaste("8", mode);
+    vm.OnPaste("8");
     callCount += 2;
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     VERIFY_IS_TRUE(UCM::Command::Eight == mock->m_lastCommand);
 
-    vm.OnPaste("9", mode);
+    vm.OnPaste("9");
     callCount += 2;
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     VERIFY_IS_TRUE(UCM::Command::Nine == mock->m_lastCommand);
 
-    vm.OnPaste(".", mode);
+    vm.OnPaste(".");
     callCount += 2;
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     VERIFY_IS_TRUE(UCM::Command::Decimal == mock->m_lastCommand);
 
-    vm.OnPaste("-", mode);
+    vm.OnPaste("-");
     // Call count should increment by one (the Clear command) since negate isn't
     // sent by itself, only after another legal character
     ++callCount;
@@ -922,7 +909,7 @@ TEST_METHOD(TestOnPaste)
 
     // Send an invalid character
 
-    vm.OnPaste("a", mode);
+    vm.OnPaste("a");
     // Count should remain the same
     VERIFY_ARE_EQUAL(callCount, mock->m_sendCommandCallCount);
     // Last command should remain the same
@@ -939,14 +926,14 @@ TEST_METHOD(TestDecimalFormattingLogic)
     const WCHAR *vFrom = L"3.", *vTo = L"2.50";
     vm.UpdateDisplay(vFrom, vTo);
     // Establish base condition
-    VERIFY_IS_TRUE(vm.Value1 == AddUnicodeLTRMarkers(L"3."));
-    VERIFY_IS_TRUE(vm.Value2 == AddUnicodeLTRMarkers(L"2.50"));
+    VERIFY_IS_TRUE(vm.Value1 == L"3.");
+    VERIFY_IS_TRUE(vm.Value2 == L"2.50");
     vm.SwitchActive->Execute(nullptr);
-    VERIFY_IS_TRUE(vm.Value1 == AddUnicodeLTRMarkers(L"3")); // dangling decimal now removed
-    VERIFY_IS_TRUE(vm.Value2 == AddUnicodeLTRMarkers(L"2.50"));
+    VERIFY_IS_TRUE(vm.Value1 == L"3"); // dangling decimal now removed
+    VERIFY_IS_TRUE(vm.Value2 == L"2.50");
     vm.SwitchActive->Execute(nullptr);
-    VERIFY_IS_TRUE(vm.Value1 == AddUnicodeLTRMarkers(L"3"));
-    VERIFY_IS_TRUE(vm.Value2 == AddUnicodeLTRMarkers(L"2.50"));
+    VERIFY_IS_TRUE(vm.Value1 == L"3");
+    VERIFY_IS_TRUE(vm.Value2 == L"2.50");
 }
 // Tests that when we switch the active field and get display
 // updates, the correct automation names are are being updated.

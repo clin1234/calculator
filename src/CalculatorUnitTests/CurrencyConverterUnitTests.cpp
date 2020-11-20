@@ -103,8 +103,6 @@ namespace CalculatorUnitTests
 {
     constexpr auto sc_Language_EN = L"en-US";
 
-    const UCM::Category CURRENCY_CATEGORY = { NavCategory::Serialize(ViewMode::Currency), L"Currency", false /*supportsNegative*/ };
-
     unique_ptr<CurrencyDataLoader> MakeLoaderWithResults(String ^ staticResponse, String ^ allRatiosResponse)
     {
         auto client = make_unique<MockCurrencyHttpClientWithResult>(staticResponse, allRatiosResponse);
@@ -382,8 +380,12 @@ TEST_METHOD(Load_Success_LoadedFromWeb)
 }
 ;
 
-TEST_CLASS(CurrencyConverterUnitTests){ const UCM::Unit GetUnit(const vector<UCM::Unit>& unitList, const wstring& target){
-    return *find_if(begin(unitList), end(unitList), [&target](const UCM::Unit& u) { return u.abbreviation == target; });
+TEST_CLASS(CurrencyConverterUnitTests){
+
+    const UCM::Category CURRENCY_CATEGORY = { NavCategory::Serialize(ViewMode::Currency), L"Currency", false /*supportsNegative*/ };
+
+    const UCM::Unit GetUnit(const vector<UCM::Unit>& unitList, const wstring& target){
+        return *find_if(begin(unitList), end(unitList), [&target](const UCM::Unit& u) { return u.abbreviation == target; });
 }
 
 TEST_METHOD(Loaded_LoadOrderedUnits)
@@ -402,7 +404,7 @@ TEST_METHOD(Loaded_LoadOrderedUnits)
     VERIFY_IS_TRUE(loader.LoadedFromCache());
     VERIFY_IS_FALSE(loader.LoadedFromWeb());
 
-    vector<UCM::Unit> unitList = loader.LoadOrderedUnits(CURRENCY_CATEGORY);
+    vector<UCM::Unit> unitList = loader.GetOrderedUnits(CURRENCY_CATEGORY);
     VERIFY_ARE_EQUAL(size_t{ 2 }, unitList.size());
 
     const UCM::Unit usdUnit = GetUnit(unitList, L"USD");
@@ -432,7 +434,7 @@ TEST_METHOD(Loaded_LoadOrderedRatios)
     VERIFY_IS_TRUE(loader.LoadedFromCache());
     VERIFY_IS_FALSE(loader.LoadedFromWeb());
 
-    vector<UCM::Unit> unitList = loader.LoadOrderedUnits(CURRENCY_CATEGORY);
+    vector<UCM::Unit> unitList = loader.GetOrderedUnits(CURRENCY_CATEGORY);
     VERIFY_ARE_EQUAL(size_t{ 2 }, unitList.size());
 
     const UCM::Unit usdUnit = GetUnit(unitList, L"USD");
@@ -465,7 +467,7 @@ TEST_METHOD(Loaded_GetCurrencySymbols_Valid)
     VERIFY_IS_TRUE(loader.LoadedFromCache());
     VERIFY_IS_FALSE(loader.LoadedFromWeb());
 
-    vector<UCM::Unit> unitList = loader.LoadOrderedUnits(CURRENCY_CATEGORY);
+    vector<UCM::Unit> unitList = loader.GetOrderedUnits(CURRENCY_CATEGORY);
     VERIFY_ARE_EQUAL(size_t{ 2 }, unitList.size());
 
     const UCM::Unit usdUnit = GetUnit(unitList, L"USD");
@@ -504,7 +506,7 @@ TEST_METHOD(Loaded_GetCurrencySymbols_Invalid)
     VERIFY_ARE_EQUAL(wstring(L""), wstring(symbols.second.c_str()));
 
     // Verify that when only one unit is valid, both symbols return as empty string.
-    vector<UCM::Unit> unitList = loader.LoadOrderedUnits(CURRENCY_CATEGORY);
+    vector<UCM::Unit> unitList = loader.GetOrderedUnits(CURRENCY_CATEGORY);
     VERIFY_ARE_EQUAL(size_t{ 2 }, unitList.size());
 
     const UCM::Unit usdUnit = GetUnit(unitList, L"USD");
@@ -537,7 +539,7 @@ TEST_METHOD(Loaded_GetCurrencyRatioEquality_Valid)
     VERIFY_IS_TRUE(loader.LoadedFromCache());
     VERIFY_IS_FALSE(loader.LoadedFromWeb());
 
-    vector<UCM::Unit> unitList = loader.LoadOrderedUnits(CURRENCY_CATEGORY);
+    vector<UCM::Unit> unitList = loader.GetOrderedUnits(CURRENCY_CATEGORY);
     VERIFY_ARE_EQUAL(size_t{ 2 }, unitList.size());
 
     const UCM::Unit usdUnit = GetUnit(unitList, L"USD");
@@ -575,7 +577,7 @@ TEST_METHOD(Loaded_GetCurrencyRatioEquality_Invalid)
     VERIFY_ARE_EQUAL(wstring(L""), ratio.second);
 
     // Verify that when only one unit is valid, both symbols return as empty string.
-    vector<UCM::Unit> unitList = loader.LoadOrderedUnits(CURRENCY_CATEGORY);
+    vector<UCM::Unit> unitList = loader.GetOrderedUnits(CURRENCY_CATEGORY);
     VERIFY_ARE_EQUAL(size_t{ 2 }, unitList.size());
 
     const UCM::Unit usdUnit = GetUnit(unitList, L"USD");
@@ -589,6 +591,38 @@ TEST_METHOD(Loaded_GetCurrencyRatioEquality_Invalid)
 
     VERIFY_ARE_EQUAL(wstring(L""), ratio.first);
     VERIFY_ARE_EQUAL(wstring(L""), ratio.second);
+}
+
+TEST_METHOD(Test_RoundCurrencyRatio)
+{
+    CurrencyDataLoader loader{ nullptr };
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(1234567), 1234567);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0), 0);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(9999.999), 9999.999);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(8765.4321), 8765.4321);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(4815.162342), 4815.1623);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(4815.162358), 4815.1624);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(4815.162388934723), 4815.1624);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.12), 0.12);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.123), 0.123);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.1234), 0.1234);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.12343), 0.1234);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.0321), 0.0321);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.03211), 0.03211);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.032119), 0.03212);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.00322119), 0.003221);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.00123269), 0.001233);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.00076269), 0.0007627);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.000069), 0.000069);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.000061), 0.000061);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.000054612), 0.00005461);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.000054616), 0.00005462);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.000005416), 0.000005416);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.0000016134324), 0.000001613);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.0000096134324), 0.000009613);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.0000032169348392), 0.000003217);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.000000002134987218), 0.000000002135);
+    VERIFY_ARE_EQUAL(CurrencyDataLoader::RoundCurrencyRatio(0.000000000000087231445), 0.00000000000008723);
 }
 }
 ;

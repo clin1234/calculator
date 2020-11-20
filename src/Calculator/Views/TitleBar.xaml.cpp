@@ -15,11 +15,15 @@ using namespace Windows::UI;
 using namespace Windows::UI::Core;
 using namespace Windows::UI::ViewManagement;
 using namespace Windows::UI::Xaml;
+using namespace Windows::UI::Xaml::Controls;
 using namespace Windows::UI::Xaml::Media;
 using namespace Windows::Foundation::Collections;
+using namespace Concurrency;
 
 namespace CalculatorApp
 {
+    DEPENDENCY_PROPERTY_INITIALIZATION(TitleBar, IsAlwaysOnTopMode);
+
     TitleBar::TitleBar()
         : m_coreTitleBar(CoreApplication::GetCurrentView()->TitleBar)
     {
@@ -27,10 +31,16 @@ namespace CalculatorApp
         m_accessibilitySettings = ref new AccessibilitySettings();
         InitializeComponent();
 
+        m_coreTitleBar->ExtendViewIntoTitleBar = true;
+        Window::Current->SetTitleBar(BackgroundElement);
+
         Loaded += ref new RoutedEventHandler(this, &TitleBar::OnLoaded);
         Unloaded += ref new RoutedEventHandler(this, &TitleBar::OnUnloaded);
-
-        AppName->Text = AppResourceProvider::GetInstance().GetResourceString(L"AppName");
+#ifdef IS_STORE_BUILD
+        AppName->Text = AppResourceProvider::GetInstance()->GetResourceString(L"AppName");
+#else
+        AppName->Text = AppResourceProvider::GetInstance()->GetResourceString(L"DevAppName");
+#endif // IS_STORE_BUILD
     }
 
     void TitleBar::OnLoaded(_In_ Object ^ /*sender*/, _In_ RoutedEventArgs ^ /*e*/)
@@ -40,7 +50,7 @@ namespace CalculatorApp
             [this](CoreApplicationViewTitleBar ^ cTitleBar, Object ^) { this->SetTitleBarVisibility(); });
         m_layoutChangedToken = m_coreTitleBar->LayoutMetricsChanged +=
             ref new TypedEventHandler<CoreApplicationViewTitleBar ^, Object ^>([this](CoreApplicationViewTitleBar ^ cTitleBar, Object ^) {
-                this->LayoutRoot->Height = cTitleBar->Height;
+                this->SetTitleBarHeight();
                 this->SetTitleBarPadding();
             });
 
@@ -50,11 +60,10 @@ namespace CalculatorApp
         m_windowActivatedToken = Window::Current->Activated +=
             ref new Windows::UI::Xaml::WindowActivatedEventHandler(this, &CalculatorApp::TitleBar::OnWindowActivated);
         // Set properties
-        LayoutRoot->Height = m_coreTitleBar->Height;
-        SetTitleBarControlColors();
-        SetTitleBarExtendView();
-        SetTitleBarVisibility();
-        SetTitleBarPadding();
+        this->SetTitleBarHeight();
+        this->SetTitleBarControlColors();
+        this->SetTitleBarVisibility();
+        this->SetTitleBarPadding();
     }
 
     void TitleBar::OnUnloaded(_In_ Object ^ /*sender*/, _In_ RoutedEventArgs ^ /*e*/)
@@ -72,14 +81,14 @@ namespace CalculatorApp
         m_windowActivatedToken.Value = 0;
     }
 
-    void TitleBar::SetTitleBarExtendView()
-    {
-        m_coreTitleBar->ExtendViewIntoTitleBar = !m_accessibilitySettings->HighContrast;
-    }
-
     void TitleBar::SetTitleBarVisibility()
     {
-        this->LayoutRoot->Visibility = m_coreTitleBar->IsVisible && !m_accessibilitySettings->HighContrast ? ::Visibility::Visible : ::Visibility::Collapsed;
+        this->LayoutRoot->Visibility = m_coreTitleBar->IsVisible || IsAlwaysOnTopMode ? ::Visibility::Visible : ::Visibility::Collapsed;
+    }
+
+    void TitleBar::SetTitleBarHeight()
+    {
+        this->LayoutRoot->Height = m_coreTitleBar->Height;
     }
 
     void TitleBar::SetTitleBarPadding()
@@ -157,7 +166,6 @@ namespace CalculatorApp
     {
         Dispatcher->RunAsync(CoreDispatcherPriority::Normal, ref new DispatchedHandler([this]() {
                                  SetTitleBarControlColors();
-                                 SetTitleBarExtendView();
                                  SetTitleBarVisibility();
                              }));
     }
@@ -166,5 +174,16 @@ namespace CalculatorApp
     {
         VisualStateManager::GoToState(
             this, e->WindowActivationState == CoreWindowActivationState::Deactivated ? WindowNotFocused->Name : WindowFocused->Name, false);
+    }
+
+    void TitleBar::OnIsAlwaysOnTopModePropertyChanged(bool /*oldValue*/, bool newValue)
+    {
+        SetTitleBarVisibility();
+        VisualStateManager::GoToState(this, newValue ? "AOTMiniState" : "AOTNormalState", false);
+    }
+
+    void TitleBar::AlwaysOnTopButton_Click(_In_ Object ^ /*sender*/, _In_ RoutedEventArgs ^ e)
+    {
+        AlwaysOnTopClick(this, e);
     }
 }
